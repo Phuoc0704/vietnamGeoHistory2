@@ -1,0 +1,200 @@
+import os
+from weasyprint import HTML
+
+# Content for interactive HTML map file
+html_map_content = """<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bản đồ Việt Nam - Tương tác</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f4f6f9; }
+        header { background: #1a365d; color: white; padding: 15px 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        header h1 { font-size: 22px; margin-bottom: 5px; }
+        header p { font-size: 13px; color: #cbd5e0; }
+        #map { flex: 1; width: 100%; height: 100%; }
+        .info-box { position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 300px; }
+        .info-box h3 { color: #2c5282; margin-bottom: 8px; font-size: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+        .info-box p { font-size: 13px; color: #4a5568; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>BẢN ĐỒ VIỆT NAM INTERACTIVE</h1>
+        <p>Bản đồ tương tác sẵn sàng để tải và đưa lên web chính thức</p>
+    </header>
+    
+    <div id="map"></div>
+
+    <div class="info-box">
+        <h3>Quần đảo Hoàng Sa & Trường Sa</h3>
+        <p>Bản đồ tích hợp sẵn khẳng định chủ quyền lãnh thổ Việt Nam với hai quần đảo Hoàng Sa và Trường Sa.</p>
+    </div>
+
+    <script>
+        var map = L.map('map').setView([16.047079, 108.206230], 6);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Marker Ha Noi
+        L.marker([21.028511, 105.804817]).addTo(map)
+            .bindPopup('<b>Thủ đô Hà Nội</b><br>Trung tâm chính trị, văn hóa của Việt Nam.').openPopup();
+
+        // Marker Da Nang
+        L.marker([16.047079, 108.206230]).addTo(map)
+            .bindPopup('<b>Thành phố Đà Nẵng</b><br>Thành phố đáng sống duyên hải Trung Bộ.');
+
+        // Marker TP.HCM
+        L.marker([10.8231, 106.6297]).addTo(map)
+            .bindPopup('<b>Thành phố Hồ Chí Minh</b><br>Trung tâm kinh tế lớn nhất Việt Nam.');
+
+        // Marker Hoang Sa
+        L.marker([16.5, 112.0]).addTo(map)
+            .bindPopup('<b>Quần đảo Hoàng Sa</b><br>Thuộc chủ quyền Việt Nam (TP. Đà Nẵng).');
+
+        // Marker Truong Sa
+        L.marker([8.65, 111.9]).addTo(map)
+            .bindPopup('<b>Quần đảo Trường Sa</b><br>Thuộc chủ quyền Việt Nam (Tỉnh Khánh Hòa).');
+    </script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_map_content)
+
+# PDF guide for deploying with custom free domain
+pdf_html_guide = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page {
+        size: A4;
+        margin: 15mm 12mm;
+        background-color: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, sans-serif;
+        color: #1e293b;
+        margin: 0;
+        padding: 0;
+        font-size: 10.5pt;
+        line-height: 1.5;
+    }
+    .header-banner {
+        background-color: #0f172a;
+        color: #ffffff;
+        margin: -15mm -12mm 15mm -12mm;
+        padding: 25px 15mm;
+    }
+    .header-banner h1 {
+        font-size: 18pt;
+        margin: 0 0 6px 0;
+        color: #38bdf8;
+    }
+    .header-banner p {
+        font-size: 10pt;
+        margin: 0;
+        color: #94a3b8;
+    }
+    h2 {
+        font-size: 13pt;
+        color: #0369a1;
+        border-left: 4px solid #0284c7;
+        padding-left: 8px;
+        margin-top: 15pt;
+        margin-bottom: 8pt;
+        page-break-after: avoid;
+    }
+    .domain-box {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px 15px;
+        margin-bottom: 12px;
+    }
+    .domain-box h3 {
+        margin: 0 0 5px 0;
+        font-size: 11pt;
+        color: #0f172a;
+    }
+    .domain-url {
+        font-family: monospace;
+        background: #f1f5f9;
+        color: #2563eb;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    ul, ol {
+        margin-top: 5px;
+        margin-bottom: 10px;
+        padding-left: 20px;
+    }
+    li {
+        margin-bottom: 4px;
+    }
+    .step-card {
+        background-color: #ffffff;
+        border-left: 3px solid #10b981;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        border-radius: 0 4px 4px 0;
+    }
+</style>
+</head>
+<body>
+    <div class="header-banner">
+        <h1>HƯỚNG DẪN ĐẠT TÊN MIỀN TRUY CẬP TRỰC TIẾP</h1>
+        <p>Cấu hình mã nguồn index.html và sở hữu tên miền truy cập chạy ngay lập tức</p>
+    </div>
+
+    <h2>1. Danh sách tên miền chạy sẵn bạn có thể sử dụng ngay</h2>
+    <div class="domain-box">
+        <h3>Dạng 1: Tên miền GitHub Pages chuẩn (Miễn phí 100%)</h3>
+        <p>Cấu trúc: <span class="domain-url">https://&lt;ten-user&gt;.github.io</span> (Nó sẽ nhảy thẳng vào trang index.html nếu đặt ở thư mục chính).</p>
+    </div>
+
+    <div class="domain-box">
+        <h3>Dạng 2: Tên miền tùy chỉnh miễn phí (Khuyên dùng)</h3>
+        <p>Bạn có thể đăng ký tên miền ngắn hoàn toàn miễn phí tại <strong>DuckDNS</strong> hoặc <strong>js.org</strong> / <strong>is-a.dev</strong>:</p>
+        <ul>
+            <li><span class="domain-url">https://bando-vietnam.is-a.dev</span></li>
+            <li><span class="domain-url">https://bando-vn.duckdns.org</span></li>
+        </ul>
+    </div>
+
+    <h2>2. Cách đăng ký và trỏ Tên miền phụ (Subdomain) miễn phí</h2>
+    <div class="step-card">
+        <strong>Bước 1:</strong> Tạo tài khoản tại <strong>DuckDNS.org</strong> (Đăng nhập bằng GitHub).
+    </div>
+    <div class="step-card">
+        <strong>Bước 2:</strong> Nhập tên miền bạn muốn (ví dụ: <code>bando-cuatoi</code>) -> Nhấn <em>add domain</em>. Bạn sẽ có tên miền <code>bando-cuatoi.duckdns.org</code>.
+    </div>
+    <div class="step-card">
+        <strong>Bước 3:</strong> Vào GitHub Repository -> <strong>Settings</strong> -> <strong>Pages</strong> -> Nhập tên miền vào mục <strong>Custom Domain</strong> -> Nhấn Save.
+    </div>
+
+    <h2>3. Lưu ý để vào thẳng trang code HTML</h2>
+    <ul>
+        <li>Tên file bắt buộc phải viết chữ thường: <code>index.html</code></li>
+        <li>File <code>index.html</code> nằm ngay ngoài cùng của kho mã nguồn (Root folder).</li>
+        <li>Sau khi cập nhật, truy cập đường link sẽ mở ngay giao diện web mà không báo lỗi 404 hay hiện danh sách thư mục.</li>
+    </ul>
+</body>
+</html>
+"""
+
+with open("guide.html", "w", encoding="utf-8") as f:
+    f.write(pdf_html_guide)
+
+HTML("guide.html").write_pdf("Huong_Dan_Ten_Mien_Website.pdf")
+print("FILES_CREATED_SUCCESSFULLY")
