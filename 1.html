@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bản Đồ Địa Lý & Lịch Sử 63 Tỉnh Thành Việt Nam</title>
+    <!-- CSS Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f4f6f9;
+        }
+
+        header {
+            background-color: #da251d;
+            color: #ffff00;
+            padding: 12px 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #map {
+            flex: 2;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .sidebar {
+            flex: 1;
+            max-width: 420px;
+            min-width: 320px;
+            background: #ffffff;
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+            z-index: 2;
+            position: relative;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .search-box:focus {
+            border-color: #da251d;
+        }
+
+        /* Danh sách gợi ý tìm kiếm */
+        .suggestions-list {
+            position: absolute;
+            top: 60px;
+            left: 15px;
+            right: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            z-index: 9999;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+        }
+
+        .suggestion-item:hover {
+            background-color: #ffebee;
+            color: #da251d;
+            font-weight: bold;
+        }
+
+        .content-panel {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .placeholder-text {
+            color: #777;
+            text-align: center;
+            margin-top: 40px;
+            font-style: italic;
+            line-height: 1.6;
+        }
+
+        .location-title {
+            color: #da251d;
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+            border-bottom: 2px solid #da251d;
+            padding-bottom: 5px;
+        }
+
+        .location-region {
+            display: inline-block;
+            background: #e9ecef;
+            color: #495057;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section h3 {
+            color: #333;
+            font-size: 1.05rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section p {
+            color: #444;
+            line-height: 1.6;
+            font-size: 0.92rem;
+            text-align: justify;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            #map { flex: 1; }
+            .sidebar { max-width: 100%; height: 45vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>★ BẢN ĐỒ ĐỊA LÝ & LỊCH SỬ 63 TỈNH THÀNH VIỆT NAM ★</h1>
+    </header>
+
+    <div class="container">
+        <div id="map"></div>
+
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <input type="text" id="search" class="search-box" placeholder="🔍 Nhập tỉnh/thành phố (vd: Hải Phòng, Lâm Đồng...)" oninput="onSearchInput()" autocomplete="off">
+                <div id="suggestions" class="suggestions-list"></div>
+            </div>
+            <div class="content-panel" id="details">
+                <div class="placeholder-text">
+                    👈 Hãy chọn hoặc gõ tên tỉnh/thành phố vào ô tìm kiếm trên để khám phá thông tin chi tiết về Địa lý và Lịch sử.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Dữ liệu chuẩn xác 63 tỉnh/thành phố + 2 Quần đảo Việt Nam
+        const locations = [
+            // Miền Bắc (Tây Bắc, Đông Bắc, ĐB Sông Hồng)
+            { name: "Hà Nội", region: "Đồng bằng sông Hồng", coords: [21.0285, 105.8542], geo: "Nằm ở trung tâm Đồng bằng sông Hồng, địa hình dốc từ Bắc xuống Nam và từ Tây sang Đông.", history: "Thủ đô ngàn năm văn hiến, thành lập từ năm 1010 khi Vua Lý Thái Tổ dời đô về Thăng Long." },
+            { name: "Hải Phòng", region: "Đồng bằng sông Hồng", coords: [20.8449, 106.6881], geo: "Thành phố cảng biển lớn nhất miền Bắc, nằm ở hạ lưu hệ thống sông Thái Bình.", history: "Nổi tiếng với chiến thắng Sông Bạch Đằng lịch sử và truyền thống kiên cường 'Trung dũng - Quyết thắng'." },
+            { name: "Hải Dương", region: "Đồng bằng sông Hồng", coords: [20.9409, 106.3330], geo: "Vùng đất phù sa trù phú ở trung tâm đồng bằng Bắc Bộ.", history: "Quê hương của danh nhân Nguyễn Trãi, nơi phát tích dòng thiền Trúc Lâm Yên Tử." },
+            { name: "Hưng Yên", region: "Đồng bằng sông Hồng", coords: [20.6464, 106.0511], geo: "Đồng bằng bằng phẳng hoàn toàn, đất phù sa sông Hồng màu mỡ.", history: "Thời xưa có Phố Hiến nổi tiếng: 'Thứ nhất Kinh Kỳ, thứ nhì Phố Hiến'." },
+            { name: "Bắc Ninh", region: "Đồng bằng sông Hồng", coords: [21.1861, 106.0763], geo: "Tỉnh có diện tích nhỏ nhất Việt Nam, địa hình bằng phẳng.", history: "Vùng đất Kinh Bắc cổ kính, nôi của dân ca Quan họ và các ngôi chùa cổ bậc nhất." },
+            { name: "Hà Nam", region: "Đồng bằng sông Hồng", coords: [20.5452, 105.9123], geo: "Cửa ngõ phía Nam Thủ đô, địa hình kết hợp đồng bằng và bán sơn địa.", history: "Gắn liền với các trận đánh lịch sử tại sông Đáy và vùng di tích Chùa Tam Chúc." },
+            { name: "Nam Định", region: "Đồng bằng sông Hồng", coords: [20.4200, 106.1683], geo: "Nằm ở phía Nam đồng bằng Bắc Bộ, giáp biển Đông.", history: "Quê hương phát tích của Vương triều nhà Trần hào hùng với 3 lần đánh thắng quân Nguyên Mông." },
+            { name: "Thái Bình", region: "Đồng bằng sông Hồng", coords: [20.4464, 106.3364], geo: "Tỉnh thuần đồng bằng, được bao bọc bởi hệ thống sông lớn và biển.", history: "Vựa lúa miền Bắc, quê hương của chị Hai 5 tấn trong thời kỳ kháng chiến." },
+            { name: "Ninh Bình", region: "Đồng bằng sông Hồng", coords: [20.2508, 105.9744], geo: "Địa hình đa dạng với vùng núi đá vôi ngập nước karst Tràng An.", history: "Cố đô Hoa Lư của nhà nước Đại Cồ Việt thời Đinh - Tiền Lê (968 - 1010)." },
+            { name: "Vĩnh Phúc", region: "Đồng bằng sông Hồng", coords: [21.3089, 105.6049], geo: "Chuyển tiếp giữa đồng bằng và miền núi Tam Đảo.", history: "Nổi tiếng với danh thắng Tam Đảo và di tích chiến khu Tam Đảo." },
+            { name: "Bắc Giang", region: "Đông Bắc Bộ", coords: [21.2731, 106.1946], geo: "Nằm trên hành lang kinh tế Đông Bắc, địa hình bán sơn địa.", history: "Gắn liền với chiến thắng Chi Lăng - Xương Giang đánh tan quân Minh." },
+            { name: "Quảng Ninh", region: "Đông Bắc Bộ", coords: [20.9500, 107.0833], geo: "Địa hình vừa có núi, đồng bằng và bờ biển với hàng ngàn đảo đá vôi.", history: "Có Vịnh Hạ Long di sản thế giới và chiến trường Sông Bạch Đằng 1288." },
+            { name: "Phú Thọ", region: "Đông Bắc Bộ", coords: [21.3167, 105.2167], geo: "Nằm ở giao điểm của 3 dòng sông: Sông Hồng, Sông Lô, Sông Đáy.", history: "Đất Tổ Hùng Vương, trung tâm của nhà nước Văn Lang thời đại các Vua Hùng." },
+            { name: "Thái Nguyên", region: "Đông Bắc Bộ", coords: [21.5942, 105.8482], geo: "Trung tâm vùng trung du miền núi phía Bắc, đồi núi thấp.", history: "Thủ đô gió ngàn - Căn cứ địa cách mạng Việt Bắc trong kháng chiến chống Pháp." },
+            { name: "Tuyên Quang", region: "Đông Bắc Bộ", coords: [21.8242, 105.2167], geo: "Địa hình núi cao phía Bắc và đồi thấp phía Nam.", history: "Thủ đô Khu giải phóng và Thủ đô Kháng chiến Tân Trào." },
+            { name: "Lạng Sơn", region: "Đông Bắc Bộ", coords: [21.8537, 106.7610], geo: "Tỉnh biên giới phía Bắc, núi đồi xen kẽ thung lũng.", history: "Nổi tiếng với Ải Chi Lăng, Nhị Thanh, Tam Thanh và khởi nghĩa Bắc Sơn." },
+            { name: "Cao Bằng", region: "Đông Bắc Bộ", coords: [22.6667, 106.2500], geo: "Tỉnh miền núi cao biên giới, nổi tiếng với thác Bản Giốc.", history: "Nơi Bác Hồ về nước năm 1941 tại Pác Bố chỉ đạo cách mạng Việt Nam." },
+            { name: "Bắc Kạn", region: "Đông Bắc Bộ", coords: [22.1470, 105.8348], geo: "Núi cao bao bọc, có hồ Ba Bể nổi tiếng.", history: "Thuộc căn cứ địa cách mạng Việt Bắc thời chống Pháp." },
+            { name: "Hà Giang", region: "Đông Bắc Bộ", coords: [22.8233, 104.9839], geo: "Địa đầu Bắc Bộ, cao nguyên đá Đồng Văn hùng vĩ.", history: "Vùng đất địa đầu Tổ quốc với mặt trận Vị Xuyên kiên cường." },
+            { name: "Yên Bái", region: "Tây Bắc Bộ", coords: [21.7167, 104.9000], geo: "Nằm ở cửa ngõ Tây Bắc, có danh thắng ruộng bậc thang Mù Cang Chải.", history: "Nổi tiếng với Khởi nghĩa Yên Bái (1930) của Nguyễn Thái Học." },
+            { name: "Lào Cai", region: "Tây Bắc Bộ", coords: [22.4833, 103.9667], geo: "Biên giới phía Bắc, sở hữu đỉnh Fansipan cao nhất Đông Dương.", history: "Trung tâm thương mại biên giới quan trọng từ thời Pháp thuộc." },
+            { name: "Sơn La", region: "Tây Bắc Bộ", coords: [21.3256, 103.9188], geo: "Nằm trên cao nguyên Mộc Châu và Sơn La rộng lớn.", history: "Nơi có Nhà tù Sơn La giam giữ hàng ngàn chiến sĩ cộng sản." },
+            { name: "Điện Biên", region: "Tây Bắc Bộ", coords: [21.3861, 103.0230], geo: "Vùng núi cao, ở giữa là lòng chảo Mường Thanh.", history: "Nơi diễn ra Chiến thắng Điện Biên Phủ 1954 lừng lẫy năm châu." },
+            { name: "Lai Châu", region: "Tây Bắc Bộ", coords: [22.3964, 103.4582], geo: "Tỉnh biên giới núi cao hiểm trở bậc nhất Việt Nam.", history: "Địa bàn sinh sống lâu đời của nhiều dân tộc thiểu số Tây Bắc." },
+            { name: "Hòa Bình", region: "Tây Bắc Bộ", coords: [20.8167, 105.3333], geo: "Vùng núi chuyển tiếp đồng bằng, có hồ thủy điện Hòa Bình.", history: "Nơi phát hiện Văn hóa Hòa Bình nổi tiếng thời tiền sử." },
+
+            // Miền Trung (Bắc Trung Bộ & Nam Trung Bộ)
+            { name: "Thanh Hóa", region: "Bắc Trung Bộ", coords: [19.8073, 105.7763], geo: "Cửa ngõ miền Trung, địa hình đầy đủ núi, đồi, đồng bằng, biển.", history: "Quê hương của Bà Triệu, Lê Lợi và Cuộc khởi nghĩa Lam Sơn." },
+            { name: "Nghệ An", region: "Bắc Trung Bộ", coords: [19.2342, 104.8388], geo: "Tỉnh có diện tích lớn nhất Việt Nam, địa hình phức tạp.", history: "Quê hương Chủ tịch Hồ Chí Minh và phong trào Xô Viết Nghệ Tĩnh." },
+            { name: "Hà Tĩnh", region: "Bắc Trung Bộ", coords: [18.3559, 105.8877], geo: "Phía Tây là dãy Trường Sơn, phía Đông là biển Đông.", history: "Nơi có Ngã ba Đồng Lộc anh hùng trong chiến tranh chống Mỹ." },
+            { name: "Quảng Bình", region: "Bắc Trung Bộ", coords: [17.4833, 106.6000], geo: "Nơi hẹp nhất Việt Nam theo chiều Đông - Tây, giàu hang động (Sơn Đoòng).", history: "Vùng đất chiến lược thời Trịnh - Nguyễn phân tranh và chống Mỹ." },
+            { name: "Quảng Trị", region: "Bắc Trung Bộ", coords: [16.7500, 107.1850], geo: "Địa hình dốc, thời tiết khắc nghiệt với gió Lào khô nóng.", history: "Nơi vĩnh biệt chia cắt vĩ tuyến 17 và Trận Thành cổ Quảng Trị 1972." },
+            { name: "Thừa Thiên Huế", region: "Bắc Trung Bộ", coords: [16.4637, 107.5909], geo: "Tựa lưng vào dãy Trường Sơn, có sông Hương thơ mộng.", history: "Cố đô nhà Nguyễn (1802 - 1945), di sản văn hóa thế giới." },
+            { name: "Đà Nẵng", region: "Nam Trung Bộ", coords: [16.0544, 108.2022], geo: "Cảng biển trung tâm miền Trung, giáp đèo Hải Vân.", history: "Nơi Pháp nổ súng xâm lược năm 1858 và đô thị phát triển hiện đại." },
+            { name: "Quảng Nam", region: "Nam Trung Bộ", coords: [15.5667, 108.0000], geo: "Có bờ biển dài, địa hình dốc từ Tây sang Đông.", history: "Sở hữu Phố cổ Hội An và Thánh địa Mỹ Sơn (UNESCO)." },
+            { name: "Quảng Ngãi", region: "Nam Trung Bộ", coords: [15.1200, 108.8000], geo: "Nằm ở duyên hải Nam Trung Bộ, có đảo Lý Sơn.", history: "Nơi có Khởi nghĩa Ba Tơ và văn hóa Sa Huỳnh cổ." },
+            { name: "Bình Định", region: "Nam Trung Bộ", coords: [13.7820, 109.2194], geo: "Nhiều đồi núi đâm ra biển, đồng bằng nhỏ hẹp.", history: "Đất võ Tây Sơn, quê hương của Anh hùng áo vải Quang Trung." },
+            { name: "Phú Yên", region: "Nam Trung Bộ", coords: [13.0833, 109.0833], geo: "Nổi tiếng với Gành Đá Đĩa và các đầm vịnh đẹp.", history: "Nơi có tàu Không số bến Vũng Rô huyền thoại." },
+            { name: "Khánh Hòa", region: "Nam Trung Bộ", coords: [12.2500, 109.1833], geo: "Bờ biển dài nhiều vịnh đẹp nhất thế giới (Nha Trang, Cam Ranh).", history: "Trung tâm hải quân và du lịch biển lớn của cả nước." },
+            { name: "Ninh Thuận", region: "Nam Trung Bộ", coords: [11.5667, 108.9833], geo: "Vùng khô hạn nhất Việt Nam, nhiều nắng gió.", history: "Trung tâm văn hóa Chăm Pa cổ với các tháp Chàm nguyên vẹn." },
+            { name: "Bình Thuận", region: "Nam Trung Bộ", coords: [11.0833, 108.1000], geo: "Bờ biển kéo dài, nổi tiếng với đồi cát Mũi Né.", history: "Nơi Bác Hồ từng dạy học tại Trường Dục Thanh (Phan Thiết)." },
+
+            // Tây Nguyên
+            { name: "Kon Tum", region: "Tây Nguyên", coords: [14.3500, 108.0000], geo: "Bắc Tây Nguyên, giáp Lào và Campuchia (Ngã ba Đông Dương).", history: "Gắn liền với chiến thắng Đắk Tô - Tân Cảnh 1972." },
+            { name: "Gia Lai", region: "Tây Nguyên", coords: [13.9833, 108.0000], geo: "Cao nguyên Pleiku trù phú, đất đỏ bazan.", history: "Nơi có Không gian văn hóa Cồng chiêng Tây Nguyên." },
+            { name: "Đắk Lắk", region: "Tây Nguyên", coords: [12.6667, 108.0500], geo: "Trung tâm Tây Nguyên, thủ phủ cà phê Buôn Ma Thuột.", history: "Nơi mở màn Chiến dịch Tây Nguyên năm 1975." },
+            { name: "Đắk Nông", region: "Tây Nguyên", coords: [12.0000, 107.6833], geo: "Nằm trên cao nguyên M'Nông, có công viên địa chất thế giới.", history: "Gắn liền với phong trào khởi nghĩa N'Trang Lơng." },
+            { name: "Lâm Đồng", region: "Tây Nguyên", coords: [11.9404, 108.4583], geo: "Cao nguyên Lâm Viên - Di Linh, khí hậu mát mẻ quanh năm.", history: "Được thám hiểm bởi Bác sĩ Yersin (1893), phát triển thành đô thị Đà Lạt." },
+
+            // Miền Nam (Đông Nam Bộ & ĐB Sông Cửu Long)
+            { name: "TP. Hồ Chí Minh", region: "Đông Nam Bộ", coords: [10.8231, 106.6297], geo: "Trung tâm Nam Bộ, hệ thống sông Sài Gòn chằng chịt.", history: "Thành lập năm 1698 (Gia Định), trung tâm kinh tế lớn nhất cả nước." },
+            { name: "Bình Dương", region: "Đông Nam Bộ", coords: [11.1667, 106.6500], geo: "Địa hình đồi lượn sóng nhẹ, đất bồi tụ bền vững.", history: "Thủ phủ công nghiệp, nổi tiếng với Chiến khu D." },
+            { name: "Bình Phước", region: "Đông Nam Bộ", coords: [11.7500, 106.9167], geo: "Chuyển tiếp giữa Tây Nguyên và Nam Bộ, nhiều rừng.", history: "Căn cứ Tà Thiết - Trụ sở Bộ chỉ huy quân giải phóng miền Nam." },
+            { name: "Tây Ninh", region: "Đông Nam Bộ", coords: [11.3000, 106.1000], geo: "Có núi Bà Đen cao nhất Nam Bộ (986m).", history: "Tòa thánh Cao Đài và Căn cứ Trung ương Cục miền Nam." },
+            { name: "Đồng Nai", region: "Đông Nam Bộ", coords: [10.9500, 106.8167], geo: "Cửa ngõ Đông Nam Bộ, sông Đồng Nai chảy qua.", history: "Vùng đất Trấn Biên xưa, phát triển công nghiệp sớm." },
+            { name: "Bà Rịa - Vũng Tàu", region: "Đông Nam Bộ", coords: [10.3500, 107.0833], geo: "Vùng ven biển Đông Nam Bộ, bao gồm cả Côn Đảo.", history: "Trung tâm khai thác dầu khí và du lịch biển nổi tiếng." },
+
+            { name: "Long An", region: "Đồng bằng sông Cửu Long", coords: [10.5333, 106.4000], geo: "Cửa ngõ nối TP.HCM với miền Tây, vùng Đồng Tháp Mười.", history: "Được phong tặng 8 chữ vàng 'Trung dũng dũng cảm, toàn dân đánh giặc'." },
+            { name: "Tiền Giang", region: "Đồng bằng sông Cửu Long", coords: [10.3500, 106.3500], geo: "Nằm trải dài dọc sông Tiền màu mỡ.", history: "Chiến thắng Rạch Gầm - Xoài Mút (1785) của Nguyễn Huệ." },
+            { name: "Bến Tre", region: "Đồng bằng sông Cửu Long", coords: [10.2333, 106.3833], geo: "Được hợp thành từ 3 cù lao lớn bãi bồi sông Tiền.", history: "Quê hương Đồng Khởi (1960) và đội quân tóc dài Nữ tướng Nguyễn Thị Định." },
+            { name: "Vĩnh Long", region: "Đồng bằng sông Cửu Long", coords: [10.2500, 105.9667], geo: "Nằm giữa hai nhánh sông Tiền và sông Hậu.", history: "Vùng đất Long Hồ dinh xưa, nơi sinh dưỡng nhiều nhà lãnh đạo kiệt xuất." },
+            { name: "Đồng Tháp", region: "Đồng bằng sông Cửu Long", coords: [10.4667, 105.6333], geo: "Nổi tiếng với vùng sen ngập nước Đồng Tháp Mười.", history: "Nơi có Khu di tích Cụ Phó bảng Nguyễn Sinh Sắc (thân sinh Bác Hồ)." },
+            { name: "An Giang", region: "Đồng bằng sông Cửu Long", coords: [10.3833, 105.4167], geo: "Đón đầu nguồn sông Tiền - sông Hậu vào Việt Nam, có dãy Thất Sơn.", history: "Quê hương Chủ tịch Tôn Đức Thắng và văn hóa Óc Eo cổ đại." },
+            { name: "Kiên Giang", region: "Đồng bằng sông Cửu Long", coords: [10.0167, 105.0833], geo: "Tỉnh duyên hải phía Tây, sở hữu thành phố đảo Phú Quốc.", history: "Gắn liền với danh nhân anh hùng Nguyễn Trung Trực." },
+            { name: "Cần Thơ", region: "Đồng bằng sông Cửu Long", coords: [10.0452, 105.7469], geo: "Trung tâm Đồng bằng sông Cửu Long, sông nước hữu tình.", history: "Được mệnh danh là Tây Đô - trung tâm phát triển lâu đời của miền Tây." },
+            { name: "Hậu Giang", region: "Đồng bằng sông Cửu Long", coords: [9.7833, 105.4667], geo: "Trung tâm kênh rạch sông nước miền Tây.", history: "Nơi có Di tích chiến thắng Tầm Vu vang dội." },
+            { name: "Sóc Trăng", region: "Đồng bằng sông Cửu Long", coords: [9.6000, 105.9833], geo: "Cửa sông Hậu đổ ra biển, giao thoa 3 dân tộc Kinh - Khmer - Hoa.", history: "Nổi tiếng với các ngôi chùa Khmer cổ kính và lễ hội Óok Om Bok." },
+            { name: "Bạc Liêu", region: "Đồng bằng sông Cửu Long", coords: [9.2941, 105.7278], geo: "Vùng bãi bồi ven biển phía Nam.", history: "Gắn liền với huyền thoại Công tử Bạc Liêu và bản Đạ Cổ Hoài Lang." },
+            { name: "Cà Mau", region: "Đồng bằng sông Cửu Long", coords: [9.1769, 105.1500], geo: "Mũi đất tận cùng phía Nam Tổ quốc, rừng ngập mặn bao phủ.", history: "Mũi Cà Mau thiêng liêng - mảnh đất bồi hồi sóng biển nghìn năm." },
+
+            // Biển đảo thiêng liêng
+            { name: "Quần đảo Hoàng Sa", region: "Thành phố Đà Nẵng", coords: [16.5000, 112.0000], geo: "Quần đảo san hô nằm ở phía Bắc Biển Đông.", history: "Việt Nam đã xác lập và thực thi chủ quyền liên tục từ thời các chúa Nguyễn (Đội Hoàng Sa)." },
+            { name: "Quần đảo Trường Sa", region: "Tỉnh Khánh Hòa", coords: [8.6500, 111.9167], geo: "Quần đảo san hô phía Nam Biển Đông, vị trí chiến lược quốc phòng.", history: "Tuyến đầu bảo vệ chủ quyền biển đảo thiêng liêng bất khả xâm phạm của Tổ quốc." }
+        ];
+
+        // Hàm bỏ dấu tiếng Việt để tìm kiếm chuẩn xác 100% (vd: "hai phong" -> "Hải Phòng")
+        function removeVietnameseTones(str) {
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+            str = str.replace(/đ/g, "d");
+            str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+            str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+            str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+            str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+            str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+            str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+            str = str.replace(/Đ/g, "D");
+            return str.toLowerCase().trim();
+        }
+
+        // Khởi tạo bản đồ
+        const map = L.map('map').setView([16.0000, 107.5000], 6);
+
+        // Map Tile CartoDB Voyager mượt và không bị lỗi 403
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        const mapMarkers = [];
+
+        // Hiển thị nội dung chi tiết
+        function selectLocation(index) {
+            const loc = locations[index];
+            const detailsDiv = document.getElementById('details');
+            
+            detailsDiv.innerHTML = `
+                <h2 class="location-title">${loc.name}</h2>
+                <span class="location-region">${loc.region}</span>
+                
+                <div class="section">
+                    <h3>🗺️ Địa lý:</h3>
+                    <p>${loc.geo}</p>
+                </div>
+                
+                <div class="section">
+                    <h3>📜 Lịch sử:</h3>
+                    <p>${loc.history}</p>
+                </div>
+            `;
+
+            // Phóng to bản đồ tới tỉnh được chọn
+            map.flyTo(loc.coords, 9, { duration: 1.2 });
+            mapMarkers[index].openPopup();
+
+            // Ẩn bảng gợi ý
+            document.getElementById('suggestions').style.display = 'none';
+        }
+
+        // Tạo các ghim (markers) trên bản đồ
+        locations.forEach((loc, index) => {
+            const marker = L.marker(loc.coords).addTo(map);
+            marker.bindPopup(`<b>${loc.name}</b><br><small>Nhấp để xem chi tiết</small>`);
+            
+            marker.on('click', () => {
+                selectLocation(index);
+            });
+
+            mapMarkers.push(marker);
+        });
+
+        // Xử lý ô tìm kiếm chuẩn xác
+        function onSearchInput() {
+            const inputVal = document.getElementById('search').value;
+            const cleanInput = removeVietnameseTones(inputVal);
+            const sugBox = document.getElementById('suggestions');
+
+            if (!cleanInput) {
+                sugBox.style.display = 'none';
+                return;
+            }
+
+            // Lọc địa điểm khớp với từ khóa (kể cả có dấu hay không dấu)
+            const matches = locations.map((loc, idx) => ({ ...loc, originalIndex: idx }))
+                .filter(loc => removeVietnameseTones(loc.name).includes(cleanInput));
+
+            if (matches.length > 0) {
+                sugBox.innerHTML = matches.map(item => 
+                    `<div class="suggestion-item" onclick="selectLocation(${item.originalIndex}); document.getElementById('search').value='${item.name}';">
+                        📍 <strong>${item.name}</strong> <small>(${item.region})</small>
+                    </div>`
+                ).join('');
+                sugBox.style.display = 'block';
+            } else {
+                sugBox.innerHTML = `<div class="suggestion-item" style="color:#888;">Không tìm thấy tỉnh/thành phố nào!</div>`;
+                sugBox.style.display = 'block';
+            }
+        }
+
+        // Đóng gợi ý khi click ra ngoài
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.sidebar-header')) {
+                document.getElementById('suggestions').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
